@@ -4,6 +4,12 @@ A Codex skill and optional local API service for turning supplied artwork into i
 
 **Creative inspiration: @乌托邦的香蕉 — the same handle on Xiaohongshu (小红书) and Bilibili (B站).** This project is an independent implementation; attribution does not imply endorsement.
 
+## Demo
+
+[![Watch the holographic card demo](docs/demo-preview.jpg)](https://github.com/LerSent001/holo-card/blob/main/docs/demo.mp4)
+
+[Watch or download the demo recording](https://github.com/LerSent001/holo-card/raw/refs/heads/main/docs/demo.mp4). The recording is a user-provided demonstration; artwork belongs to its respective owners.
+
 ## Quick start: trigger the skill
 
 After installing, start a new Codex task, **attach your card image**, and send:
@@ -105,4 +111,4 @@ node --test test/*.test.mjs
 
 ## Scope and rights
 
-The package contains code and an original geometric card back. User images, generated example cards, credentials, caches and job histories are excluded. Use artwork you are entitled to process and share. This is a layered 2D parallax renderer, not reconstructed 3D geometry. The project is provided under the MIT license; third-party dependencies retain their own licenses.
+The package contains code and an original geometric card back. Source card images, credentials, caches and job histories are excluded; the user-provided demo recording is included. Use artwork you are entitled to process and share. This is a layered 2D parallax renderer, not reconstructed 3D geometry. The project is provided under the MIT license; third-party dependencies retain their own licenses.
