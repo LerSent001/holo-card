@@ -1,0 +1,4 @@
+interface:
+  display_name: "Holo Card"
+  short_description: "Create layered holographic cards with native image tools and local assembly"
+  default_prompt: "Use $holo-card to turn my supplied image into an interactive holographic card. Repair occluded artwork, preserve typography, and verify transparency and alignment."

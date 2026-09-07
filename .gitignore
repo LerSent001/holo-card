@@ -1,0 +1,12 @@
+node_modules/
+__pycache__/
+*.pyc
+.env
+.env.*
+.DS_Store
+outputs/
+data/
+*.sqlite*
+*.log
+client.json
+service.json

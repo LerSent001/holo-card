@@ -1,0 +1,9 @@
+{
+  "name": "holo-card-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {"node": ">=24.0.0"},
+  "scripts": {"start": "node src/server.mjs", "test": "node --test test/*.test.mjs"},
+  "dependencies": {"sharp": "0.34.5"}
+}
