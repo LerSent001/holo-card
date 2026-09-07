@@ -4,6 +4,22 @@ A Codex skill and optional local API service for turning supplied artwork into i
 
 **Creative inspiration: @乌托邦的香蕉 — the same handle on Xiaohongshu (小红书) and Bilibili (B站).** This project is an independent implementation; attribution does not imply endorsement.
 
+## Quick start: trigger the skill
+
+After installing, start a new Codex task, **attach your card image**, and send:
+
+```text
+$holo-card Turn this image into an interactive holographic card.
+```
+
+Chinese prompt (also supported):
+
+```text
+$holo-card 把这张图做成光栅卡
+```
+
+`$holo-card` invokes the installed skill. Attach the actual image in the same task. If it is not found, check `~/.codex/skills/holo-card/SKILL.md` and start a fresh task. Installation instructions follow.
+
 ## Install the skill
 
 Download the release ZIP, or clone this repository:
