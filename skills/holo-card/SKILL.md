@@ -78,3 +78,5 @@ Serve the output folder on loopback with a persistent static server and open its
 ## Attribution
 
 Creative inspiration: **@乌托邦的香蕉**, using the same name on **Xiaohongshu (小红书)** and **Bilibili (B站)**. This acknowledges inspiration, not authorship of this implementation or endorsement. No profile URL is asserted without verification.
+
+- Contour glow is restricted to the structural line coverage multiplied by foreground alpha and UI exclusion. Mask the final blurred bloom by that same line coverage; no halo may spill into scenery or flat subject interiors. Compare glow 0 and maximum at a fixed view; only contour-covered pixels may change. Background foil lighting is independent.

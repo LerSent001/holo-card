@@ -41,7 +41,7 @@ void main(){
  emission*=(1.-um)*inside;
  if(glowPass>.5){gl_FragColor=encodeHDR(max(emission-vec3(1.),vec3(0.)));return;}
  vec3 bloom=decodeHDR(texture2D(bloomNear,p))*.55+decodeHDR(texture2D(bloomWide,p))*.8;
- bloom*=inside*(1.-um);
+ bloom*=inside*(1.-um)*line;
  // Display mapping is applied AFTER the HDR light and two-scale bloom are composed.
  vec3 linear=pow(clamp(base,0.,1.),vec3(2.2));
  vec3 combined=1.-(1.-linear)*exp(-(emission*.38+bloom*.85));

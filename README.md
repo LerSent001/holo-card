@@ -39,7 +39,7 @@ The local helper does not generate or segment images by itself. It saves jobs, v
 - Drag to rotate; click or press Enter/Space to flip.
 - Arrow keys adjust the card angle.
 - **Depth:** -3 to +3, default 0 at the center. Negative/positive changes foreground parallax direction. Text and frame always remain above the foreground.
-- **Contour glow:** 0 to 3, default 0.15. Zero disables contour light.
+- **Contour glow:** 0 to 3, default 0.15. Zero disables contour light. Emission and bloom are restricted to structural contour coverage; glow does not spill into the background.
 - Background texture moves independently of the card's CSS rotation.
 
 ## Local commands
