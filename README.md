@@ -111,7 +111,7 @@ node --test test/*.test.mjs
 
 ## Scope and rights
 
-The package contains code and an original geometric card back. Source card images, credentials, caches and job histories are excluded; the user-provided demo recording is included. Use artwork you are entitled to process and share. This is a layered 2D parallax renderer, not reconstructed 3D geometry. The project is provided under the MIT license; third-party dependencies retain their own licenses.
+The package contains code and a navy-and-gold card back generated from a user-supplied visual reference. See the bundled artwork notice for provenance and rights. Source card images, credentials, caches and job histories are excluded; the user-provided demo recording is included. Use artwork you are entitled to process and share. This is a layered 2D parallax renderer, not reconstructed 3D geometry. The project is provided under the MIT license; third-party dependencies retain their own licenses.
 
 ## Mobile preview and immersive mode
 

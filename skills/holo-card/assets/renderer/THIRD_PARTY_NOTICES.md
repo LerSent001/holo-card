@@ -1,3 +1,5 @@
-# Assets
+# Artwork and dependencies
 
-The bundled geometric card back is original artwork created for this project. No commercial trading-card artwork or user uploads are included. User-supplied artwork remains subject to its original rights. Third-party Python and Node dependencies retain their own licenses.
+The default navy-and-gold witch-hat card back was generated with an image-generation tool from a user-supplied visual reference, at the user's request. It is a recreation, not a claim of an independently originated design. Rights in the reference artwork remain with their respective holders; the code's MIT license does not grant rights to underlying third-party artwork. The original reference upload is not bundled.
+
+User-supplied card artwork remains subject to its original rights. Third-party Python and Node dependencies retain their own licenses.
