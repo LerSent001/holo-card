@@ -92,3 +92,7 @@ python3 <skill-dir>/scripts/native.py assemble --job /absolute/job --preview-url
 ```
 
 Publish the updated HTML containing the QR entry to that same URL. This argument generates a link and QR only; it does not upload or establish availability. Preserve the target access policy and state if the link requires login. Do not claim real phone verification from synthetic orientation events.
+
+## Signed depth and clipping
+
+Positive depth lets character and combined text/frame layers extend outside the background card boundary on an oversized transparent rendering surface. Keep the background clipped to its rounded card boundary. Text/frame depth is clamped to zero for negative slider values; its own rounded clipping boundary moves with the layer. Negative character depth uses the original 0.06 view-offset coefficient and remains clipped to the card. Positive character and text offsets use 0.08 and 0.14 respectively. Do not simulate depth by scaling artwork. Preserve UI stacking, aligned character/contour coordinates, and hide the whole front surface when the back is visible.

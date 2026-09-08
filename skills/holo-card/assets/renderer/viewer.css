@@ -10,3 +10,6 @@
 
 /* Spacious controls and a card-only immersive view. */
 .controls{row-gap:24px;padding:22px 18px}.interaction{margin-top:2px}#motion-hint{display:none}.stage{height:calc(100% - 220px)}.card{max-height:calc(100svh - 250px);max-width:calc((100svh - 250px) / var(--card-aspect,1.4))}.immersive-toggle{position:fixed;z-index:20;top:calc(16px + env(safe-area-inset-top));right:calc(16px + env(safe-area-inset-right));width:42px;height:42px;display:grid;place-items:center;border:1px solid #ffffff20;border-radius:50%;color:#dfe6ee;background:#202429b3;cursor:pointer;touch-action:manipulation}.immersive-toggle:focus-visible{outline:2px solid #d6ef9d;outline-offset:3px}.eye-slash{display:none}.immersive .eye-slash{display:block}.immersive .controls,.immersive .status{display:none}.immersive .stage{height:100%;width:100%;padding:0}.immersive .card{width:min(88vw,calc(84svh / var(--card-aspect,1.4)))!important;max-width:none;max-height:none}@media (max-height:500px) and (orientation:landscape){.controls{row-gap:18px}.stage{height:100%}.card{max-height:88svh;max-width:calc(88svh / var(--card-aspect,1.4))}}
+
+/* Oversized transparent foreground surface; background clipping is done in the shader. */
+.front{overflow:visible;background:transparent}.front canvas{position:absolute;width:160%;height:160%;max-width:none;left:-30%;top:-30%;border-radius:0;pointer-events:none}

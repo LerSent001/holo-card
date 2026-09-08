@@ -12,13 +12,25 @@ vec3 rainbow(float t){return .52+.48*cos(6.28318*(t+vec3(0.,.33,.67)));}
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 float band(vec2 p){float f=p.x*.65+p.y*.4+view.x*1.9+view.y*.85;return pow(max(0.,1.-abs(fract(f+.16)-.5)*2.),3.);}
 void main(){
- vec2 p=uv;vec2 a=(p-.5)*1.25+.5+view*.40;vec2 b=(p-.5)*.5+.5-view*.25;
- if(extracted>.5){a=p-view*.06*depth;b=(p-.5)*.5+.5-view*.25;}
+ vec2 p=(uv-.5)*1.6+.5;vec2 u=p;
+ vec2 edge=abs((p-.5)*vec2(1.,cardAspect))-(vec2(.5,cardAspect*.5)-vec2(.045));
+ float edgeDistance=length(max(edge,0.))+min(max(edge.x,edge.y),0.)-.045;
+ float cardMask=1.-smoothstep(-pixelWidth,pixelWidth,edgeDistance);
+ float foregroundMask=depth>0.?1.:cardMask;vec2 a=(p-.5)*1.25+.5+view*.40;vec2 b=(p-.5)*.5+.5-view*.25;
+ if(extracted>.5){a=p-view*(depth<0.?.06:.08)*depth;u=p-view*.14*max(depth,0.);b=(p-.5)*.5+.5-view*.25;}
  vec4 ch=texture2D(art,a);ch.a*=step(0.,a.x)*step(a.x,1.)*step(0.,a.y)*step(a.y,1.);
- vec4 background=texture2D(bg,b);background.a*=step(0.,b.x)*step(b.x,1.)*step(0.,b.y)*step(b.y,1.);
- vec3 base=mix(mix(vec3(.055,.065,.085),background.rgb,background.a),ch.rgb,ch.a);
- vec3 ui=texture2D(uiTex,p).rgb;vec3 uh=hsv(ui);float um=max(smoothstep(.105,.23,uh.y),1.-smoothstep(.35,.62,uh.z));
- if(extracted>.5)um=texture2D(uiTex,p).a;
+ ch.a*=foregroundMask;
+ vec4 background=texture2D(bg,b);background.a*=cardMask;background.a*=step(0.,b.x)*step(b.x,1.)*step(0.,b.y)*step(b.y,1.);
+ float baseAlpha=cardMask+(1.-cardMask)*ch.a;
+ vec3 base=mix(background.rgb*cardMask,ch.rgb,ch.a);
+ vec3 ui=texture2D(uiTex,u).rgb;vec3 uh=hsv(ui);float um=max(smoothstep(.105,.23,uh.y),1.-smoothstep(.35,.62,uh.z));
+ if(extracted>.5)um=texture2D(uiTex,u).a*step(0.,u.x)*step(u.x,1.)*step(0.,u.y)*step(u.y,1.);
+ // The text/frame plate has its own rounded boundary, moving with its UVs.
+ vec2 uiEdge=abs((u-.5)*vec2(1.,cardAspect))-(vec2(.5,cardAspect*.5)-vec2(.045));
+ float uiDistance=length(max(uiEdge,0.))+min(max(uiEdge.x,uiEdge.y),0.)-.045;
+ float uiMask=1.-smoothstep(-pixelWidth,pixelWidth,uiDistance);
+ um*=uiMask*foregroundMask;
+ float finalAlpha=baseAlpha+(1.-baseAlpha)*um;
  float phase=p.x*.62+p.y*.36+view.x*1.9+view.y*.8;
  vec3 spectrum=rainbow(phase*2.2);float light=band(p);
  float micro=pow(hash(floor(p*vec2(620.,868.))),28.);
@@ -29,6 +41,7 @@ void main(){
  vec2 cell=fract(p*vec2(24.,34.))-.5;float seed=hash(floor(p*vec2(24.,34.)));float star=pow(max(0.,1.-abs(cell.x)*18.),14.)*pow(max(0.,1.-abs(cell.y)*2.),6.)+pow(max(0.,1.-abs(cell.y)*18.),14.)*pow(max(0.,1.-abs(cell.x)*2.),6.);
  base+=spectrum*(star*step(.965,seed)*light*.65+micro*light*.12)*power*(1.-ch.a);
  base=mix(base,ui,um);
+ if(cardMask<.001)base/=max(finalAlpha,.0001);
  float glare=pow(max(0.,1.-length((p-vec2(.5+view.x,.6+view.y))*vec2(1.,.75))),5.);
  base+=vec3(glare*.12*power);
  // Concentric rounded border in card-width units, matching the CSS outer radius.
@@ -38,14 +51,14 @@ void main(){
  float inside=1.-smoothstep(-pixelWidth,pixelWidth,distanceToInner);
  float rim=(1.-inside)*(1.-extracted);
  base=mix(base,mix(vec3(.76,.67,.32),spectrum*.5+.5,.35*power)+glare*.15,rim);
- emission*=(1.-um)*inside;
+ emission*=(1.-um)*foregroundMask;
  if(glowPass>.5){gl_FragColor=encodeHDR(max(emission-vec3(1.),vec3(0.)));return;}
- vec3 bloom=decodeHDR(texture2D(bloomNear,p))*.55+decodeHDR(texture2D(bloomWide,p))*.8;
- bloom*=inside*(1.-um)*line;
+ vec3 bloom=decodeHDR(texture2D(bloomNear,uv))*.55+decodeHDR(texture2D(bloomWide,uv))*.8;
+ bloom*=foregroundMask*(1.-um)*line;
  // Display mapping is applied AFTER the HDR light and two-scale bloom are composed.
  vec3 linear=pow(clamp(base,0.,1.),vec3(2.2));
  vec3 combined=1.-(1.-linear)*exp(-(emission*.38+bloom*.85));
- gl_FragColor=vec4(pow(clamp(combined,0.,1.),vec3(1./2.2)),1.);
+ gl_FragColor=vec4(pow(clamp(combined,0.,1.),vec3(1./2.2)),finalAlpha);
 }`;
 const blurFragment = `precision highp float; varying vec2 uv;uniform sampler2D source;uniform vec2 stepSize;
 vec3 decodeHDR(vec4 c){return c.rgb*c.a*64.;}
@@ -53,7 +66,8 @@ vec4 encodeHDR(vec3 c){float m=clamp(ceil(max(max(c.r,c.g),c.b)/64.*255.)/255.,1
 void main(){vec3 c=vec3(0.);float total=0.;for(int i=-4;i<=4;i++){float f=float(i);float w=exp(-f*f/8.);c+=decodeHDR(texture2D(source,uv+stepSize*f))*w;total+=w;}gl_FragColor=encodeHDR(c/total);}`;
 export async function createCardRenderer(canvas, assets) {
   const gl = canvas.getContext('webgl', {
-    alpha: false,
+    alpha: true,
+    premultipliedAlpha: false,
     antialias: false,
     powerPreference: 'high-performance',
     preserveDrawingBuffer: true,
@@ -126,7 +140,7 @@ export async function createCardRenderer(canvas, assets) {
     return t;
   });
   // Full-resolution artwork and line core; bloom only is computed at half/quarter resolution.
-  canvas.width = window.innerWidth < 640 ? 648 : 880;
+  canvas.width = window.innerWidth < 640 ? 1036 : 1408;
   canvas.height = Math.round(
     canvas.width * (assets ? images[0].height / images[0].width : 1.4),
   );
