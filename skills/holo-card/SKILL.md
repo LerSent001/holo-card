@@ -69,6 +69,10 @@ python3 <skill-dir>/scripts/native.py apply-alpha --job /absolute/job --kind cha
 
 The mask must match image dimensions, use L/1 mode and contain opaque/transparent coverage. Supply the complete desired alpha with unaffected areas preserved. The helper saves input hashes and black/white review images. For UI, retain original colored pixels where possible rather than regenerating typography. Do not use alpha repair to bypass a refused generation.
 
+## Repair matte selection errors
+
+When matte removal damages light artwork or detached details, read [matte region selection](references/layer-repair.md). Its optional `scripts/matte_regions.py` removes only explicitly seeded candidate components, respects protected artwork, and preserves existing alpha elsewhere. Never infer background from region size, keep only the largest foreground component, or reuse previous-card coordinates. Candidate selection and edge quality still require visual inspection.
+
 ## Layer acceptance before rendering
 
 Judge all four layers separately before enabling foil or glow. Complexity is a reason for careful local selection, not permission to substitute these steps:

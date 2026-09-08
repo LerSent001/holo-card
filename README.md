@@ -130,3 +130,7 @@ Upload the resulting HTML to that same URL. This command embeds the link and QR 
 ### Native matte handling
 
 Native image generation is not required to return an alpha channel. Character/UI images on a checkerboard matte enter a local mask-preparation stage. The importer saves opaque inputs as `needs_alpha_mask` with a next action, rather than treating missing alpha as a terminal failure. Prepare a spatially verified grayscale mask and use `apply-alpha` to continue. The helper does not infer the mask automatically. Inspect color layers with glow disabled; reject duplicated subjects in the background and text/scenery in the structural contour layer.
+
+## Matte region repair
+
+The skill includes a [matte selection procedure](skills/holo-card/references/layer-repair.md) and a Pillow-only seeded-region helper. It removes only explicitly selected candidate components, respects protected artwork, preserves detached foreground details and existing alpha, and uses no example-card coordinates. Candidate identification and soft-edge refinement still require visual inspection. This update does not resolve generated geometry drift, fine-text fidelity, contour alignment or the missing all-effects-off inspection control.
