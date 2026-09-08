@@ -30,20 +30,23 @@ void main(){
  float uiDistance=length(max(uiEdge,0.))+min(max(uiEdge.x,uiEdge.y),0.)-.045;
  float uiMask=1.-smoothstep(-pixelWidth,pixelWidth,uiDistance);
  um*=uiMask*foregroundMask;
- float finalAlpha=baseAlpha+(1.-baseAlpha)*um;
+ float finalAlpha=clamp(baseAlpha+(1.-baseAlpha)*um,0.,1.);
+ // Transparent overscan must contain zero RGB, including on Safari/Metal.
+ if(finalAlpha<=0.){gl_FragColor=glowPass>.5?encodeHDR(vec3(0.)):vec4(0.);return;}
  float phase=p.x*.62+p.y*.36+view.x*1.9+view.y*.8;
  vec3 spectrum=rainbow(phase*2.2);float light=band(p);
  float micro=pow(hash(floor(p*vec2(620.,868.))),28.);
- base=mix(base,base*(.64+spectrum*.7)+spectrum*.07,light*.48*power);
+ base=mix(base,base*(.64+spectrum*.7)+spectrum*.07*baseAlpha,light*.48*power);
  float line=structure(a)*ch.a;
  float envelope=smoothstep(.025,.42,light);
  vec3 emission=(spectrum*.85+vec3(.15))*line*envelope*power*40.*contourBrightness;
  vec2 cell=fract(p*vec2(24.,34.))-.5;float seed=hash(floor(p*vec2(24.,34.)));float star=pow(max(0.,1.-abs(cell.x)*18.),14.)*pow(max(0.,1.-abs(cell.y)*2.),6.)+pow(max(0.,1.-abs(cell.y)*18.),14.)*pow(max(0.,1.-abs(cell.x)*2.),6.);
- base+=spectrum*(star*step(.965,seed)*light*.65+micro*light*.12)*power*(1.-ch.a);
+ base+=spectrum*(star*step(.965,seed)*light*.65+micro*light*.12)*power*(1.-ch.a)*cardMask;
  base=mix(base,ui,um);
- if(cardMask<.001)base/=max(finalAlpha,.0001);
+
  float glare=pow(max(0.,1.-length((p-vec2(.5+view.x,.6+view.y))*vec2(1.,.75))),5.);
- base+=vec3(glare*.12*power);
+ base+=vec3(glare*.12*power)*finalAlpha;
+ base/=max(finalAlpha,.0001);
  // Concentric rounded border in card-width units, matching the CSS outer radius.
  // Outer radius .045, uniform inset .015, inner radius .030.
  vec2 corner=abs((p-.5)*vec2(1.,cardAspect))-(vec2(.485,cardAspect*.5-.015)-vec2(.030));
@@ -58,7 +61,7 @@ void main(){
  // Display mapping is applied AFTER the HDR light and two-scale bloom are composed.
  vec3 linear=pow(clamp(base,0.,1.),vec3(2.2));
  vec3 combined=1.-(1.-linear)*exp(-(emission*.38+bloom*.85));
- gl_FragColor=vec4(pow(clamp(combined,0.,1.),vec3(1./2.2)),finalAlpha);
+ gl_FragColor=vec4(pow(clamp(combined,0.,1.),vec3(1./2.2))*finalAlpha,finalAlpha);
 }`;
 const blurFragment = `precision highp float; varying vec2 uv;uniform sampler2D source;uniform vec2 stepSize;
 vec3 decodeHDR(vec4 c){return c.rgb*c.a*64.;}
@@ -67,7 +70,7 @@ void main(){vec3 c=vec3(0.);float total=0.;for(int i=-4;i<=4;i++){float f=float(
 export async function createCardRenderer(canvas, assets) {
   const gl = canvas.getContext('webgl', {
     alpha: true,
-    premultipliedAlpha: false,
+    premultipliedAlpha: true,
     antialias: false,
     powerPreference: 'high-performance',
     preserveDrawingBuffer: true,
