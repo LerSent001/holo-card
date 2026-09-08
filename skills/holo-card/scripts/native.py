@@ -93,6 +93,9 @@ def html_document(job,state):
     data_url=lambda path:'data:image/png;base64,'+base64.b64encode(path.read_bytes()).decode()
     manifest={'name':state['name'],'width':state['source']['width'],'height':state['source']['height'],
               'assets':{k:data_url(job/'assets'/f'{k}.png') for k in KINDS},'back':data_url(TEMPLATES/'back.png')}
+    if state.get('preview_url'):
+        manifest['previewUrl']=state['preview_url']
+        manifest['previewQr']=data_url(job/'mobile-qr.png')
     data=json.dumps(manifest,ensure_ascii=True).replace('<','\\u003c')
     renderer=(TEMPLATES/'renderer.js').read_text().replace('export async function createCardRenderer','async function createCardRenderer')
     script='globalThis.HOLO_MANIFEST='+data+';\n'+renderer+'\nglobalThis.HOLO_CREATE_RENDERER=createCardRenderer;\n'+(TEMPLATES/'viewer.js').read_text()
@@ -100,8 +103,19 @@ def html_document(job,state):
     html=html.replace('<link rel="stylesheet" href="viewer.css?access=__ACCESS__">','<style>'+(TEMPLATES/'viewer.css').read_text()+'</style>')
     return html.replace('<script type="module" src="viewer.js?access=__ACCESS__"></script>','<script type="module">'+script+'</script>')
 
-def assemble(job):
+def assemble(job,preview_url=None):
     state=load(job)
+    if preview_url is not None:
+        from urllib.parse import urlsplit
+        parsed=urlsplit(preview_url)
+        if parsed.scheme!='https' or not parsed.hostname or parsed.username or parsed.password:
+            raise ValueError('Mobile preview URL must be an HTTPS address without embedded credentials.')
+        try:
+            import qrcode
+        except ImportError:
+            raise ValueError('Mobile QR generation requires the optional qrcode package: pip install qrcode')
+        qrcode.make(preview_url).save(job/'mobile-qr.png')
+        state['preview_url']=preview_url
     if any(layer['status']!='imported' for layer in state['layers'].values()):raise ValueError('All four actual image-tool outputs must be imported before assembly.')
     source=Image.open(job/'source.png').convert('RGBA');warnings=[]
     lut=[round(max(0,min(1,(v-24)/207))*255) for v in range(256)]
@@ -125,6 +139,7 @@ def assemble(job):
     save(job/'provenance.json',provenance)
     shutil.copyfile(TEMPLATES/'THIRD_PARTY_NOTICES.md',job/'THIRD_PARTY_NOTICES.md')
     names=['index.html','source.png',state['source']['original'],'provenance.json','prompts.json','THIRD_PARTY_NOTICES.md']
+    if state.get('preview_url'):names.append('mobile-qr.png')
     names += [f'assets/{k}.png' for k in KINDS]+[f'masks/{k}.png' for k in KINDS if (job/'masks'/f'{k}.png').exists()]
     with zipfile.ZipFile(job/'card.zip','w',zipfile.ZIP_DEFLATED) as archive:
         for name in names:archive.write(job/name,name)
@@ -164,13 +179,14 @@ def main():
     p=sub.add_parser('apply-alpha');p.add_argument('--job',required=True);p.add_argument('--kind',choices=('character','ui'),required=True);p.add_argument('--color',required=True);p.add_argument('--mask',required=True);p.add_argument('--tool-reference',required=True);p.add_argument('--replace',action='store_true')
     for command in ('assemble','status'):
         p=sub.add_parser(command);p.add_argument('--job',required=True)
+        if command=='assemble':p.add_argument('--preview-url')
     args=parser.parse_args()
     if args.command=='prepare':result=prepare(Path(args.source).expanduser().resolve(),Path(args.output).expanduser().resolve(),args.name)
     else:
         job=Path(args.job).expanduser().resolve()
         if args.command=='add':result=add(job,args.kind,Path(args.image).expanduser().resolve(),args.tool_reference,args.replace)
         elif args.command=='apply-alpha':result=apply_alpha(job,args.kind,Path(args.color),Path(args.mask),args.tool_reference,args.replace)
-        elif args.command=='assemble':result=assemble(job)
+        elif args.command=='assemble':result=assemble(job,args.preview_url)
         else:result=summary(job,load(job))
     print(json.dumps(result,ensure_ascii=False))
 

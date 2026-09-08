@@ -80,3 +80,15 @@ Serve the output folder on loopback with a persistent static server and open its
 Creative inspiration: **@乌托邦的香蕉**, using the same name on **Xiaohongshu (小红书)** and **Bilibili (B站)**. This acknowledges inspiration, not authorship of this implementation or endorsement. No profile URL is asserted without verification.
 
 - Contour glow is restricted to the structural line coverage multiplied by foreground alpha and UI exclusion. Mask the final blurred bloom by that same line coverage; no halo may spill into scenery or flat subject interiors. Compare glow 0 and maximum at a fixed view; only contour-covered pixels may change. Background foil lighting is independent.
+
+## Phone preview
+
+Every generated viewer supports optional device orientation, touch drag, tap-to-flip and Recenter. Motion starts only after the viewer clicks Enable motion; iOS permission is requested inside that gesture. HTTPS is required. Drag temporarily overrides motion. Each device keeps its own depth and glow values; no synchronization service is used. Verify permission denial, missing sensors, calibration and screen rotation separately from actual phone sensor testing.
+
+When the user requests a phone-accessible preview, host the generated HTML on an authorized HTTPS destination. With its exact URL, add an offline QR entry using the optional `qrcode` Python dependency:
+
+```sh
+python3 <skill-dir>/scripts/native.py assemble --job /absolute/job --preview-url https://actual-host.example/card
+```
+
+Publish the updated HTML containing the QR entry to that same URL. This argument generates a link and QR only; it does not upload or establish availability. Preserve the target access policy and state if the link requires login. Do not claim real phone verification from synthetic orientation events.

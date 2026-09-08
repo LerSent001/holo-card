@@ -112,3 +112,18 @@ node --test test/*.test.mjs
 ## Scope and rights
 
 The package contains code and an original geometric card back. Source card images, credentials, caches and job histories are excluded; the user-provided demo recording is included. Use artwork you are entitled to process and share. This is a layered 2D parallax renderer, not reconstructed 3D geometry. The project is provided under the MIT license; third-party dependencies retain their own licenses.
+
+## Mobile preview and immersive mode
+
+Generated cards support touch dragging, tap-to-flip, optional motion controls, and recentering. Enable motion requests browser permission on supported phones; device orientation is preferred, with gravity-based tilt as a fallback. Depth and contour glow remain independent on each device. The eye icon at the top right hides the controls and enlarges the centered card; tap it again or press Escape to exit.
+
+Motion requires a secure browser context. Host the generated HTML at an HTTPS URL, or use an account-free temporary HTTPS tunnel to your local preview server. No OpenAI login is required by the viewer itself; authentication depends on the chosen host. Temporary tunnels require the local computer and preview server to remain online.
+
+For a phone-preview QR entry, install the optional Python `qrcode` dependency and assemble with the actual destination URL:
+
+```sh
+python3 -m pip install qrcode
+python3 skills/holo-card/scripts/native.py assemble --job /path/to/card-job --preview-url https://your-preview.example/card
+```
+
+Upload the resulting HTML to that same URL. This command embeds the link and QR code; it does not provision hosting. Phone/browser permission behavior still needs real-device validation.
