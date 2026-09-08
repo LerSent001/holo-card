@@ -14,34 +14,43 @@ from PIL import Image, ImageOps, ImageChops
 KINDS=('character','background','ui','structure')
 ROOT=Path(__file__).resolve().parents[1]
 TEMPLATES=ROOT/'assets/renderer'
-TARGETS={
- 'character':'The main illustrated character or main foreground subject. Select only its actually VISIBLE pixels, including its outline and internal colors. Exclude all printed text, icons, border, and scenery.',
- 'background':'Only the VISIBLE background scenery inside the illustration. Exclude the main character, all printed text, symbols, UI, border and foreground subject. Occluded areas must remain black. Do not imagine hidden scenery.',
- 'ui':'All VISIBLE printed text, letters, numerals, labels, symbols, badges, layout rules and card frame/border. Select the precise visible glyphs and graphic shapes, not large rectangular text boxes. Exclude character and scenery.',
- 'structure':'Only the VISIBLE fine structural contour lines on the main illustrated character: outer contour and internal defining outlines of anatomy, armor, limbs, face and shape boundaries. Identify these by shape regardless of color. Draw thin white lines precisely on those existing contours. Do not select filled color regions, shading, text, UI, background lines, or the card frame. Do not invent or complete hidden contours.',
-}
 
 def prompt(kind):
     common=('Keep the entire original canvas, aspect ratio, exact positions and scale. Do not crop, recenter, redesign, '
-            'change visible geometry. No checkerboard pixels, new text or added glow. ')
+            'change visible geometry. No new text or added glow. ')
     if kind=='structure':
-        return common+'Output a black background with thin white visible structural contour lines of the main illustrated subjects, including internal shape boundaries. No filled regions, text, UI or scenery lines. Use the final repaired subject layer as the reference so contours match its repaired anatomy exactly.'
+        return common+'Output a black background with thin white visible structural contour lines of the main illustrated subjects, including selected internal shape boundaries. Exclude dense hair/fabric texture, checkerboard edges and editorial inset boundaries. No filled regions, text, UI or scenery lines. Use the final repaired subject layer as the reference so contours match its repaired anatomy exactly.'
     targets={
-      'character':'Extract only the visible main illustrated subjects in their original COLORS onto genuine transparent alpha. Remove scenery, printed text, symbols, UI and frame. Where any typography, numerals, icons or UI overlap the subject, remove the entire overlay and inpaint the concealed subject with coherent neighboring colors, shading, texture and contours. These interior repaired areas must be opaque, never transparent holes. Preserve original anatomy, silhouette, scale and position. No residual glyphs or duplicated text. Transparency belongs only outside the subject silhouette. Keep eyes, mouth interiors, black ink, dark colors and shadows opaque; never classify dark subject pixels as background. The output must be a continuous independently usable colored subject, not disconnected pieces of the source card.',
-      'background':'Automatically distinguish background scenery from foreground subjects and the combined typography/frame overlay. Produce a complete opaque COLOR background plate covering the entire canvas, including beneath the decorative border. Remove all subjects, printed text, UI and frame, and reconstruct ALL areas they concealed using the surrounding scenery, colors and directional strokes. No holes, transparent gaps, black voids or residual glyphs. Preserve visible scenery alignment.',
-      'ui':'Extract the original colored typography, numerals, symbols, information bars AND the entire original decorative border/card frame together as ONE combined UI layer at the same depth, onto genuine transparent alpha. Keep frame and typography together, never as separate depth layers. Preserve glyphs and panel colors exactly at their original positions. Remove subjects and scenery. Do not redraw or rearrange text.'}
-    return common+targets[kind]+' Output a colored RGBA layer, NOT a black-and-white mask or grayscale image.'
+      'character':'Extract only the main foreground subject and its attached hair, clothing, tails and accessories in their original COLORS. Exclude editorial inset portraits and unrelated decorative creatures. Keep those editorial panels in the UI layer. Preserve the main subject on a regular neutral gray checkerboard matte, with no checkerboard inside the retained artwork. Remove scenery, printed text, symbols, UI and frame. Where any typography, numerals, icons or UI overlap the subject, remove the entire overlay and inpaint the concealed subject with coherent neighboring colors, shading, texture and contours. These interior repaired areas must contain continuous artwork, never checkerboard holes. Preserve original anatomy, silhouette, scale and position. No residual glyphs or duplicated text. The checkerboard matte belongs only outside the subject silhouette. Keep eyes, mouth interiors, black ink, dark colors and shadows opaque; never classify dark subject pixels as background. The output must be a continuous independently usable colored subject, not disconnected pieces of the source card.',
+      'background':'Automatically distinguish background scenery from foreground subjects and the combined typography/frame overlay. Produce a complete opaque COLOR background plate covering the entire canvas, including beneath the decorative border. Remove all subjects, printed text, UI and frame, and reconstruct ALL areas they concealed using the surrounding scenery, colors and directional strokes. No transparent gaps, unfilled cutout silhouettes or residual glyphs. Naturally black scenery remains black. Never substitute an enlarged, blurred or dimmed source image containing the subject. Preserve visible scenery alignment.',
+      'ui':'Extract the original colored typography, numerals, symbols, information bars AND the entire original decorative border/card frame together as ONE combined UI layer at the same depth, on a regular neutral gray checkerboard matte, with no checkerboard inside the retained artwork. Keep frame and typography together, never as separate depth layers. Preserve glyphs and panel colors exactly at their original positions. Retain editorial inset panels including their images as UI, while excluding the main foreground subject and scenery. Prefer original source pixels for typography when local extraction can preserve them; reject changed lettering. Do not redraw or rearrange text.'}
+    return common+targets[kind]+' Output a full-color image, NOT a black-and-white mask or grayscale image. For character and UI, the local workflow converts the checkerboard matte to an alpha mask afterward; native transparent output is not required.'
 
 def sha(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 def save(path,value):
     temporary=path.with_suffix(path.suffix+'.tmp')
     temporary.write_text(json.dumps(value,ensure_ascii=False,indent=2)+'\n')
     temporary.replace(path)
-def load(job):return json.loads((job/'task.json').read_text())
+def current_prompts():return {k:prompt(k) for k in KINDS}
+def prompt_digest():return hashlib.sha256(json.dumps(current_prompts(),sort_keys=True).encode()).hexdigest()
+def load(job):
+    state=json.loads((job/'task.json').read_text())
+    if state.get('layer_mode')!='direct_rgba':
+        raise ValueError('Obsolete native mask job. Prepare a new colored-layer job; legacy prompts and extraction are no longer supported by native.py.')
+    # Saved prompts are working instructions, not the generation audit trail.
+    # Actual generation references and raw images remain untouched.
+    expected=current_prompts()
+    try:existing=json.loads((job/'prompts.json').read_text())
+    except (OSError,ValueError):existing=None
+    if existing!=expected:save(job/'prompts.json',expected)
+    if state.get('prompt_digest')!=prompt_digest():
+        state['prompt_digest']=prompt_digest();save(job/'task.json',state)
+    return state
 def summary(job,state):
     return {'job_directory':str(job),'execution':state['execution'],'status':state['status'],
             'completed_layers':sum(l['status']=='imported' for l in state['layers'].values()),'total_layers':4,
             'layers':{k:{'status':v['status'],'error':v.get('error')} for k,v in state['layers'].items()},
+            'prompts':str(job/'prompts.json'),'prompt_digest':state.get('prompt_digest'),
             'html':str(job/'index.html') if state['status']=='completed' else None,
             'archive':str(job/'card.zip') if state['status']=='completed' else None}
 
@@ -55,10 +64,10 @@ def prepare(source,job,name):
     job.mkdir(parents=True,mode=0o700);(job/'masks').mkdir();(job/'raw').mkdir();(job/'assets').mkdir()
     original_name='original'+Path(source).suffix.lower();shutil.copyfile(source,job/original_name)
     normalized.save(job/'source.png')
-    state={'version':2,'layer_mode':'direct_rgba','execution':'codex_builtin_image_gen','name':name or source.stem,'status':'awaiting_images','created_at':int(time.time()*1000),
+    state={'version':3,'prompt_digest':prompt_digest(),'layer_mode':'direct_rgba','execution':'codex_builtin_image_gen','name':name or source.stem,'status':'awaiting_images','created_at':int(time.time()*1000),
            'source':{'original':original_name,'sha256':sha(source),'normalized_sha256':sha(job/'source.png'),'width':normalized.width,'height':normalized.height},
            'layers':{k:{'status':'pending','error':None} for k in KINDS},'repairs':{'background_inpainting':True,'subject_text_cleanup':True}}
-    save(job/'task.json',state);save(job/'prompts.json',{k:prompt(k) for k in KINDS})
+    save(job/'task.json',state);save(job/'prompts.json',current_prompts())
     return {**summary(job,state),'edit_target':str(job/'source.png'),'prompts':str(job/'prompts.json'),
             'next':'Use the Codex built-in image_gen tool once per layer, then import its actual returned image path with add. No API setup is needed.'}
 
@@ -68,24 +77,26 @@ def add(job,kind,path,tool_reference,replace=False):
     with Image.open(path) as image:
         if image.width*image.height>16_000_000 or getattr(image,'n_frames',1)!=1:raise ValueError('Mask image is too large or animated.')
         suffix={'JPEG':'.jpg','WEBP':'.webp'}.get(image.format,'.png');raw='raw/'+kind+suffix
-        shutil.copyfile(path,job/raw)
+        if Path(path).resolve()!=(job/raw).resolve():shutil.copyfile(path,job/raw)
         if abs((image.width/image.height)/(state['source']['width']/state['source']['height'])-1)>.025:
             state['layers'][kind]={'status':'needs_review','error':'MASK_ASPECT_MISMATCH','raw':raw,'sha256':sha(path)}
             state['status']='needs_review';save(job/'task.json',state)
             raise ValueError('Mask aspect ratio differs from the source. Its raw output is saved; no crop or regeneration was performed.')
         rgba=image.convert('RGBA')
-        if state.get('layer_mode')=='direct_rgba' and kind!='structure':
+        if kind!='structure':
             if kind != 'background' and rgba.getchannel('A').getextrema()[0]==255:
-                state['layers'][kind]={'status':'needs_review','error':'MISSING_TRANSPARENCY','raw':raw,'sha256':sha(path)}
-                state['status']='needs_review';save(job/'task.json',state)
-                raise ValueError('Colored layer has no transparent pixels. Raw output saved; no automatic background removal performed.')
+                state['layers'][kind]={'status':'needs_alpha_mask','error':None,'raw':raw,'sha256':sha(path),'tool_reference':tool_reference}
+                state['status']='needs_alpha_mask';save(job/'task.json',state)
+                return {**summary(job,state),'repair_input':str(job/raw),
+                        'next_action':'Inspect the matte, prepare an aligned grayscale alpha mask for confirmed checkerboard regions, preserve artwork, then run apply-alpha. Continue locally; this is an intermediate state, not generation failure.',
+                        'mask_convention':'0 removes confirmed background; 255 retains artwork; intermediate values are antialiased edges. Do not threshold artwork brightness or assume opaque pixels are checkerboard.'}
             if kind == 'background' and rgba.getchannel('A').getextrema()[0] < 255:
                 state['layers'][kind]={'status':'needs_review','error':'BACKGROUND_HAS_HOLES','raw':raw,'sha256':sha(path)}
                 state['status']='needs_review';save(job/'task.json',state)
                 raise ValueError('Background must be fully opaque and inpainted. Raw output saved for review.')
         else:
             mask=ImageChops.multiply(rgba.convert('L'),rgba.getchannel('A'));mask.save(job/'masks'/f'{kind}.png')
-    state['layers'][kind]={'status':'imported','error':None,'raw':raw,'sha256':sha(path),'format':('rgba' if state.get('layer_mode')=='direct_rgba' and kind!='structure' else 'mask'),'imported_at':int(time.time()*1000),'tool_reference':tool_reference}
+    state['layers'][kind]={'status':'imported','error':None,'raw':raw,'sha256':sha(path),'format':('rgba' if kind!='structure' else 'mask'),'imported_at':int(time.time()*1000),'tool_reference':tool_reference}
     state['status']='ready_to_assemble' if all(v['status']=='imported' for v in state['layers'].values()) else 'awaiting_images'
     save(job/'task.json',state);return summary(job,state)
 
@@ -120,14 +131,15 @@ def assemble(job,preview_url=None):
     source=Image.open(job/'source.png').convert('RGBA');warnings=[]
     lut=[round(max(0,min(1,(v-24)/207))*255) for v in range(256)]
     for kind in KINDS:
-        if state.get('layer_mode')=='direct_rgba' and kind!='structure':
+        if kind!='structure':
             layer=Image.open(job/state['layers'][kind]['raw']).convert('RGBA').resize(source.size,Image.Resampling.LANCZOS)
             layer.save(job/'assets'/f'{kind}.png')
             if not layer.getchannel('A').getbbox():warnings.append(kind.upper()+'_EMPTY_LAYER')
             continue
         mask=Image.open(job/'masks'/f'{kind}.png').convert('L').resize(source.size,Image.Resampling.LANCZOS).point(lut)
-        alpha=ImageChops.multiply(source.getchannel('A'),mask)
-        layer=Image.new('RGBA',source.size,'white') if kind=='structure' else source.copy()
+        character_alpha=Image.open(job/'assets/character.png').getchannel('A')
+        alpha=ImageChops.multiply(character_alpha,mask)
+        layer=Image.new('RGBA',source.size,'white')
         layer.putalpha(alpha);layer.save(job/'assets'/f'{kind}.png')
         if not alpha.getbbox():warnings.append(kind.upper()+'_EMPTY_SELECTION')
     (job/'index.html').write_text(html_document(job,state))

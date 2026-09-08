@@ -28,16 +28,15 @@ $holo-card 把这张图做成光栅卡
 
 ## Install the skill
 
-Download the release ZIP, or clone this repository:
+Use the [current installation package](https://github.com/LerSent001/holo-card/releases/latest/download/holo-card.zip), or clone the current main branch (update an existing clone with `git pull --ff-only`):
 
 ```sh
 git clone https://github.com/LerSent001/holo-card.git
-mkdir -p ~/.codex/skills
-cp -R holo-card/skills/holo-card ~/.codex/skills/holo-card
+python3 holo-card/scripts/install-skill.py
 python3 -m pip install Pillow
 ```
 
-If that skill directory already exists, back it up or deliberately replace it. Start a fresh Codex task after installation. Attach your image and ask:
+The installer replaces the existing `holo-card` package, removes obsolete packaged files, and verifies every installed file. It does not create nested skill directories or retain discoverable backup versions. Treat the installation as managed files; keep your own card outputs elsewhere. Run the same installer after pulling updates. Start a fresh Codex task after installation so already-loaded instructions are refreshed. Attach your image and ask:
 
 ```text
 $holo-card Turn this image into an interactive holographic card.
@@ -51,7 +50,7 @@ Codex uses its built-in image tool; no Gemini key or API server is required. The
 2. Generate a continuous colored foreground, repairing artwork hidden by lettering.
 3. Reconstruct a complete opaque background, including areas hidden by the foreground and border.
 4. Extract text, symbols and the decorative frame together as one colored UI layer.
-5. Inspect true transparency. Repair only actual baked-checkerboard regions when necessary; do not mask every element or erase white artwork globally.
+5. Expect colored checkerboard-matte outputs, prepare their local alpha masks, and repair only confirmed matte regions; do not mask every element or erase white artwork globally.
 6. Generate aligned structural contours, assemble an offline HTML card and ZIP, and inspect the result in a local browser.
 
 The local helper does not generate or segment images by itself. It saves jobs, validates/imports layers, optionally applies a supplied alpha correction and assembles them. Source pixels hidden by overlays cannot be recovered exactly; inpainting is an approximation. Generated lettering, shape alignment and alpha edges still need visual review.
@@ -75,7 +74,7 @@ python3 skills/holo-card/scripts/native.py assemble --job /path/new-job
 python3 -m http.server 8795 --bind 127.0.0.1 --directory /path/new-job
 ```
 
-Open the loopback URL printed by your server. `index.html` is also self-contained for offline use. `card.zip` contains the HTML, layers and provenance. Use `status --job ...` to resume a saved job. Successful assembly is not proof of visual fidelity.
+Open the loopback URL printed by your server. `index.html` is also self-contained for offline use. `card.zip` contains the HTML, layers and provenance. Use `status --job ...` before reading a saved job’s prompts: it refreshes them from the current helper. Old mask-only native jobs are rejected instead of silently using legacy extraction. Successful assembly is not proof of visual fidelity.
 
 ## Edge cases
 
@@ -127,3 +126,7 @@ python3 skills/holo-card/scripts/native.py assemble --job /path/to/card-job --pr
 ```
 
 Upload the resulting HTML to that same URL. This command embeds the link and QR code; it does not provision hosting. Phone/browser permission behavior still needs real-device validation.
+
+### Native matte handling
+
+Native image generation is not required to return an alpha channel. Character/UI images on a checkerboard matte enter a local mask-preparation stage. The importer saves opaque inputs as `needs_alpha_mask` with a next action, rather than treating missing alpha as a terminal failure. Prepare a spatially verified grayscale mask and use `apply-alpha` to continue. The helper does not infer the mask automatically. Inspect color layers with glow disabled; reject duplicated subjects in the background and text/scenery in the structural contour layer.

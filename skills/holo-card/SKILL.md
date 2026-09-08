@@ -13,6 +13,10 @@ description: Create interactive holographic cards from supplied images with colo
 
 A safety refusal is not a missing-alpha error. Preserve the actual refusal and stop that generation; never rewrite prompts or switch providers to bypass it. API mode is not a workaround for a blocked image. For apparent false positives, use the provider's support process or different permitted material. API failures and uncertain submissions must not trigger automatic paid retries.
 
+## Current instructions and resuming
+
+Use this installed entrypoint and `scripts/native.py` as the current native workflow. Do not load prompts from old output ZIPs, copied examples or prior conversation snippets. For a saved job, run `native.py status --job ...` **before** reading `prompts.json`: it refreshes that working prompt file from the current helper without changing the existing images or generation references. Obsolete native mask-only jobs are rejected; prepare a new colored-layer job instead. The explicit API service is a separate implementation, never a source of native prompts.
+
 ## Native workflow
 
 1. Inspect the actual supplied image with `view_image`. Do not identify/name illustrated characters unless needed. Do not substitute an example.
@@ -22,17 +26,17 @@ A safety refusal is not a missing-alpha error. Preserve the actual refusal and s
 python3 <skill-dir>/scripts/native.py prepare --source /absolute/card.png --output /absolute/new-job --name 'Holo Card'
 ```
 
-The helper requires Pillow. It saves the original, normalized source, state and prompts without network access. Read `prompts.json` before generation.
+The helper requires Pillow. It saves the original, normalized source, state and prompts without network access. Read the newly prepared or refreshed `prompts.json` before generation.
 
 3. Generate separate **colored** layers with the built-in image tool:
-   - **Character:** continuous colored foreground, preserving clothing, anatomy and dark details. Remove overlaid text and repair the concealed artwork coherently. Keep genuine alpha outside the silhouette.
+   - **Character:** continuous colored foreground, preserving clothing, anatomy and dark details. Remove overlaid text and repair the concealed artwork coherently. Use a regular neutral checkerboard matte outside the silhouette; convert it locally to an alpha mask before final import.
    - **Background:** identify scenery and reconstruct every area hidden by subjects, typography and frame. Produce a complete opaque plate, without holes, glyphs or frame fragments, with room for moving crops.
-   - **UI:** combine original text, numbers, symbols, panels and the entire decorative frame at one depth. Preserve glyphs, colors and layout. Transparent outside actual UI shapes.
+   - **UI:** combine original text, numbers, symbols, panels and the entire decorative frame at one depth. Preserve glyphs, colors and layout. Use the same checkerboard-matte workflow outside actual UI shapes.
    - **Structure:** derive thin white structural contours on black from the final repaired character layer, on exactly the same canvas. No filled regions, text, frame or scenery.
 
 Use the source card for the first three layers and the final character for contours. Preserve canvas, position and scale; do not independently recenter or fit layers. Inpainting is inferred repair, not recovery of unknown original pixels. The first three layers stay colored; only structure is a luminance mask.
 
-4. Inspect and import each actual returned image:
+4. Treat colored generation and alpha preparation as separate stages. In this native workflow, expect RGB/checkerboard output; do not require the image generator to emit an alpha channel, and do not repeatedly request "transparent PNG" to resolve this. If an input already has valid alpha, preserve it. For character/UI, inspect the actual returned image, identify its checkerboard matte, and prepare the aligned local mask described below. Then import each finished layer:
 
 ```sh
 python3 <skill-dir>/scripts/native.py add --job /absolute/job --kind character --image /actual/output.png --tool-reference 'Actual generation or repair record'
@@ -49,11 +53,13 @@ python3 <skill-dir>/scripts/native.py status --job /absolute/job
 
 Outputs include four RGBA assets, self-contained HTML, ZIP and provenance. Assembly completion is not visual approval. Inspect actual results before claiming fidelity. No automatic publishing is performed.
 
-## Alpha repair: affected regions only
+## Required matte-to-mask stage: affected regions only
 
-Use correctly transparent layers directly. Never generate full-element masks as a default fallback.
+A checkerboard preview is not a file alpha channel. Read actual pixel alpha to distinguish them. Native generation need not provide alpha: for an RGB/checkerboard character or UI output, local matte removal is a normal required stage, not a missing capability or a terminal failure. `add` saves such an input as `needs_alpha_mask` and returns the next action. Continue preparing its mask and applying it; do not end with "no transparency, cannot import" or ask the user to fix it. This helper stages the work; it does not automatically infer a correct mask.
 
-If a colored output contains baked checkerboard pixels, first verify the artwork is otherwise usable. Identify only the contaminated background regions and remove that checkerboard locally, preserving existing valid alpha, clothing, skin, white highlights, text and frame. Never globally erase gray/white colors or derive subject alpha from artwork brightness. Use small auxiliary selections only where contamination is ambiguous. Check black and white composites; repair edge RGB contamination as well as alpha. Local repair cannot fix changed pose or layout.
+Use correctly transparent inputs directly. Do not ask the generator for another full-element mask by default. Build the local mask for the actual retained artwork, adjusting only contaminated background regions. An opaque image containing ordinary scenery rather than checkerboard needs actual subject separation first; never pretend that scenery is checkerboard.
+
+If a colored output contains baked checkerboard pixels, first verify the artwork is otherwise usable. Identify only the contaminated background regions and remove that checkerboard locally, preserving existing valid alpha, clothing, skin, white highlights, text and frame. Never globally erase gray/white colors or derive subject alpha from artwork brightness. Use spatially constrained selections and connected matte regions, not global color thresholding. Include enclosed background gaps between hair, limbs, accessories and clothing. Preserve white hair/fur, dark clothes, skin, metallic reflections and small lettering. For ambiguous edges, inspect at full size and use small auxiliary selections; write the complete aligned mask locally (0 background, 255 retained artwork, intermediate edge coverage). Check black and white composites; repair edge RGB contamination as well as alpha. Local repair cannot fix changed pose or layout.
 
 An optional helper applies an independently prepared, aligned grayscale correction mask without altering RGB. It does **not** predict masks or remove checkerboards automatically:
 
@@ -62,6 +68,16 @@ python3 <skill-dir>/scripts/native.py apply-alpha --job /absolute/job --kind cha
 ```
 
 The mask must match image dimensions, use L/1 mode and contain opaque/transparent coverage. Supply the complete desired alpha with unaffected areas preserved. The helper saves input hashes and black/white review images. For UI, retain original colored pixels where possible rather than regenerating typography. Do not use alpha repair to bypass a refused generation.
+
+## Layer acceptance before rendering
+
+Judge all four layers separately before enabling foil or glow. Complexity is a reason for careful local selection, not permission to substitute these steps:
+
+- Character: retain the main figure and attached hair, tails, clothes and accessories; exclude typography, scenery, poster portraits and unrelated decorative creatures. Identify the roles from the actual composition. Preserve original canvas and placement instead of fitting the cutout to its bounding box.
+- Background: remove the main figure and overlays and reconstruct the concealed scene. Never use the original image enlarged, blurred or dimmed as the completed plate; it creates a second figure under parallax. A fully opaque file alone does not prove successful inpainting.
+- UI: keep text, panels, decorative frame and editorial inset portraits together when appropriate. Preserve their original pixels/layout where possible. Do not transfer inset faces or poster text into the main-character layer.
+- Structure: derive from the final repaired character, at the identical size and position. Restrict to selected structural contours; discard checkerboard edges, text, scenery, inset-panel boundaries and dense texture noise. Subject alpha removes outside contamination but cannot by itself distinguish hair/fabric texture from useful structural lines. Inspect an overlay on the character before rendering; never align independently normalized bounding boxes.
+- First inspect the color composite with contour glow OFF, then tilt both ways. Reject repeated people, retained background silhouettes, missing interiors, displaced text and checkerboard remnants before glow testing. Bloom must not disguise extraction errors. Record actual inspection and remaining defects; `completed` only means assembly succeeded.
 
 ## Rendering contract
 
